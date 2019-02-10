@@ -36,7 +36,7 @@ The baseline folder contains the starting point for a bit of a journey to achiev
 The baseline has the following characteristics:
 * Almost all Serilog config is in the Simple.Serilog shared assembly
 * It uses enrichers to include the desired information above, including the ``Serilog.Enrichers.AspnetcoreHttpcontext`` Nuget package for some of the info
-* It writes all entries from a single app to a json file for that app
+* It writes all entries from a single app to a json file for that app (in C:\temp\Logs)
 * It uses a Filter for API performance tracking
 * It uses an Attribute for UI usage tracking -- applied at the method/action level
 
