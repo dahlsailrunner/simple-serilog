@@ -33,7 +33,7 @@ namespace Simple.Serilog
                 .Enrich.WithProperty("Assembly", $"{name.Name}")
                 .Enrich.WithProperty("Version", $"{name.Version}")
                 .WriteTo.File(new CompactJsonFormatter(),
-                    $@"C:\users\edahl\Source\Logs\{applicationName}.json");
+                    $@"C:\temp\Logs\{applicationName}.json");
         }
 
         private static UserInfo AddCustomContextDetails(IHttpContextAccessor ctx)
