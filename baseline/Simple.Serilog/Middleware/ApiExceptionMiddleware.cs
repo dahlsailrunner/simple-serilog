@@ -41,7 +41,7 @@ namespace Simple.Serilog.Middleware
 
             opts.AddResponseDetails?.Invoke(context, exception, error);
 
-            Log.Error(exception, exception.Message);
+            Log.Error(exception, "An exception was caught in the API request pipeline");
 
             var result = JsonConvert.SerializeObject(error);
             context.Response.ContentType = "application/json";
