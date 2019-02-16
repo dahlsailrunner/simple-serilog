@@ -5,7 +5,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Serilog.Enrichers.AspnetcoreHttpcontext;
+using Serilog.Filters;
 using Serilog.Formatting.Compact;
+using Serilog.Sinks.Elasticsearch;
+using Serilog.Sinks.MSSqlServer;
 
 namespace Simple.Serilog
 {
@@ -31,8 +34,40 @@ namespace Simple.Serilog
                 .Enrich.WithMachineName()
                 .Enrich.WithProperty("Assembly", $"{name.Name}")
                 .Enrich.WithProperty("Version", $"{name.Version}")
-                .WriteTo.File(new CompactJsonFormatter(),
-                    $@"C:\temp\Logs\{applicationName}.json");
+                //.WriteTo.File(new CompactJsonFormatter(),
+                //    $@"C:\temp\Logs\{applicationName}.json");
+                .WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(Matching.WithProperty("ElapsedMilliseconds"))
+                    .WriteTo.MSSqlServer(
+                        connectionString: @"Server=.\sqlexpress;Database=Logging;Trusted_Connection=True;",
+                        tableName: "PerfLog",
+                        autoCreateSqlTable: true,
+                        columnOptions: GetSqlColumnOptions()))
+                .WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(Matching.WithProperty("UsageName"))
+                    .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri("http://localhost:9200"))
+                        {
+                            AutoRegisterTemplate = true,
+                            AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv6,
+                            IndexFormat = "usage-{0:yyyy.MM.dd}"
+                        }
+                    ))
+                .WriteTo.Logger(lc => lc
+                    .Filter.ByExcluding(Matching.WithProperty("ElapsedMilliseconds"))
+                    .Filter.ByExcluding(Matching.WithProperty("UsageName"))
+                    .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri("http://localhost:9200"))
+                        {
+                            AutoRegisterTemplate = true,
+                            AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv6,
+                            IndexFormat = "error-{0:yyyy.MM.dd}"
+                        }
+                    ));
+        }
+
+        private static ColumnOptions GetSqlColumnOptions()
+        {
+            var options = new ColumnOptions();
+            return options;
         }
 
         private static UserInfo AddCustomContextDetails(IHttpContextAccessor ctx)
