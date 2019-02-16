@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace SimpleApi.Controllers
 {
@@ -14,6 +15,7 @@ namespace SimpleApi.Controllers
         [HttpGet]
         public ActionResult<IEnumerable<string>> Get()
         {
+            Log.Debug("Got into Values - GET");
             return new string[] { "value1", "value2" };
         }
 

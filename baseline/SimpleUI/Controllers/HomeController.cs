@@ -25,7 +25,7 @@ namespace SimpleUI.Controllers
         [LogUsage("View About Page")]
         public IActionResult About()
         {
-            Log.Information("We got here....");
+            Log.Debug("We got here....");
             ViewData["Message"] = "Your application description page.";
 
             return View();

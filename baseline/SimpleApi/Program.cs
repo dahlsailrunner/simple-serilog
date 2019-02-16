@@ -1,6 +1,8 @@
 ﻿using System;
+using System.IO;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Serilog.Enrichers.AspnetcoreHttpcontext;
 using Serilog;
 using Simple.Serilog;
@@ -9,6 +11,12 @@ namespace SimpleApi
 {
     public class Program
     {
+        public static IConfiguration Configuration { get; } = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+            .AddEnvironmentVariables()
+            .Build();
+
         public static int Main(string[] args)
         {
             try
@@ -34,7 +42,7 @@ namespace SimpleApi
                 .UseStartup<Startup>()
                 .UseSerilog((provider, context, loggerConfig) =>
                 {
-                    loggerConfig.WithSimpleConfiguration(provider, "SimpleAPI");
+                    loggerConfig.WithSimpleConfiguration(provider, "SimpleAPI", Configuration);
                 });
         }        
     }    
