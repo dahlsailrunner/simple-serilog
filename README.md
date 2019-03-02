@@ -45,6 +45,9 @@ The content in this folder will modify the Baseline folder to get the different 
 of log entries routed to the proper sink.  Instead of file-based sinks, we will 
 use SQL Server and Elasticsearch.
 
+The connection string for the SQL sink is in the ``Simple.Serilog->SerilogHelpers.cs`` file.  Out of the box here it uses a local SQL Express instance with a database called Logging.
+
+The ELK stack URL is in the same ``Simple.Serilog->SerilogHelpers.cs`` and uses a URI of http://localhost:9200 for the Elasticsearch endpoint.  The docker container ``sebp/elk`` is used to run the ELK stack locally.
 
 ## Formatters
 
