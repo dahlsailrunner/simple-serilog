@@ -1,0 +1,47 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+
+<div class="jumbotron" style="padding-top: 20px; margin-top: 10px;">
+    <h2>Serilog Enrichers Demo - ASP.Net Core</h2>
+    <p>This site uses the <a href="https://demo.identityserver.io">public demo version of IdentityServer4</a> for 
+        authentication purposes, and performs basic operations that illustrate how enrichers with Serilog work.</p> 
+    <div><span style="margin-right:10px;"class="label label-primary">N O T E </span> All of the pages below except the Home page require 
+        an authenticated user.</div>
+</div>
+
+<div class="list-group">
+    <a asp-controller="Home" asp-action="Index" class="list-group-item">
+        <h4 class="list-group-item-heading">Home</h4>
+        <p class="list-group-item-text">This page has no logging and does not require authentication.</p>
+    </a>
+    <a asp-controller="Home" asp-action="About" class="list-group-item">
+        <h4 class="list-group-item-heading">About</h4>
+        <p class="list-group-item-text">This page logs an informational entry and requires an authenticated user.</p>
+    </a>
+    <a asp-controller="Home" asp-action="BadPage" asp-route-id="23" class="list-group-item">
+        <h4 class="list-group-item-heading">Bad Page</h4>
+        <p class="list-group-item-text">This page has a route parameter and throws an exception.</p>
+    </a>
+    <a href="/Home/BadPageWithQuery?id=879&code=abc" class="list-group-item">
+        <h4 class="list-group-item-heading">Bad Page with Query</h4>
+        <p class="list-group-item-text">This page has two querystring-based parameters and throws an exception.</p>
+    </a>
+    <a asp-controller="Home" asp-action="GoodApi" class="list-group-item">
+        <h4 class="list-group-item-heading">Good API</h4>
+        <p class="list-group-item-text">This page makes a successful API call and displays results.</p>
+    </a>
+    <a asp-controller="Home" asp-action="GoodParamApi" class="list-group-item">
+        <h4 class="list-group-item-heading">Good API with Parameter</h4>
+        <p class="list-group-item-text">This page makes a successful API call with a parameter and displays results.</p>
+    </a>
+    <a asp-controller="Home" asp-action="UnauthApi" class="list-group-item">
+        <h4 class="list-group-item-heading">Unauth API</h4>
+        <p class="list-group-item-text">This page will make an API call that will fail with an Unauthorized (401) response due to a bad bearer token.</p>
+    </a>
+    <a asp-controller="Home" asp-action="BadApi" class="list-group-item">
+        <h4 class="list-group-item-heading">Bad API</h4>
+        <p class="list-group-item-text">This page will make an API call that fails inside the API (500 response).</p>
+    </a>
+</div>
