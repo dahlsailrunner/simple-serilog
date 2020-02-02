@@ -1,8 +1,6 @@
 ﻿using System;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Simple.Serilog.Filters;
@@ -25,7 +23,7 @@ namespace SimpleApi
             {
                 options.Filters.Add(new TrackPerformanceFilter());
 
-            }).SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+            });
 
             services.AddAuthorization();
 
@@ -38,14 +36,15 @@ namespace SimpleApi
 
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app)
         {           
             app.UseHsts();
             app.UseHttpsRedirection();
             app.UseAuthentication();
             app.UseApiExceptionHandler();  // from custom helper assembly
             //app.UseApiExceptionHandler(opts => { opts.AddResponseDetails = AddCustomErrorInfo; });            
-            app.UseMvc();
+            app.UseRouting()
+                .UseEndpoints(endpoints => endpoints.MapControllers());
         }
 
         private void AddCustomErrorInfo(HttpContext ctx, Exception ex, ApiError error)

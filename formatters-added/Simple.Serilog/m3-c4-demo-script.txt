@@ -1,0 +1,67 @@
+Here we are back in our SerilogHelper and this time let's try to get our
+Elasticsearch entried tuned up.
+
+You can see the existing code we used earlier to generate our intial entries
+for both usage and errors here.
+
+Now let's go look at what one of those entries looks like -- our starting point.
+
+We're looking at one of the exceptions that was previously logged here.
+
+At the top of the object there is an exceptions property and our exception 
+has a "depth" property.  This is the default way the elasticsearch sink 
+handles the exception tree -- which could have lots of levels of inner 
+exceptions.  The depth property indicates the level of the exception.  This 
+handling makes a lot of sense, and may work for you.  I prefer to do things
+a little differently as it relates to exceptions, and I'll show that to 
+you shortly.  The one here has a stack trace that's a little hard 
+to read and doesn't include the Data property of the exceptions at all.
+
+Moving down the entry, all of our properties are prefixed with fields.
+
+And the important message property is at the bottom of the entry.
+
+The message template is something that shows up here as well, and that 
+can be useful if you want have properties that show up in the message but 
+still want to see how many of a certain message you are actually getting.
+
+The built-in formatter provides options regarding whether to render the message 
+and the message so you can make this behave how you like.
+
+Let's go apply some modifications to the sink options to eliminate the fields 
+prefix and not render the message template.
+There's a sink option for inline fields that will eliminate the fields prefix
+if you're still using the default formatter.  
+
+We'll specify a CustomFormatter with some custom options on the standard 
+elasticsearch formatter.  These include the inline fields and options 
+are available for the rendering of the message and the message template.  
+
+We'll set the message template to not render.
+
+Then we'll apply the same setup to the entries we're sending to the error index.
+
+And in case you want to compare the new to the old entries, let's also specify 
+different index formats for each of our entries here.
+
+Then let's run the app and see what we get! 
+
+I'm going to jump straight ahead to looking at Kibana again.  and I want to 
+look at our NEW indexes which Kibana doesn't know about yet.
+
+So we'll repeat the process we followed earlier to create index patterns 
+using the naming format that we had in our code.  We'll just do the errornew 
+index for now.  Specify the timestamp column, and we should be good to browse 
+our entries.
+
+Here's an entry with an exception, and our fields prefix is gone.  Nice!
+
+The exceptions property is the same as we had before, and below that we have 
+a message but no message template.  Awesome!  
+
+But the message is at the bottom of the log entry and the exception is not 
+everything i want it to be.  So let's dive deeper and make our own version 
+of an Elasticsearch formatter.
+
+
+
