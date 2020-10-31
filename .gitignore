@@ -4,3 +4,5 @@
 
 /formatters-added/SimpleApi/bin/Debug/netcoreapp3.1
 /formatters-added/SimpleUI/bin/Debug/netcoreapp3.1
+/baseline/SimpleApi/bin/Debug/net5.0
+/baseline/SimpleUI/bin/Debug/net5.0
