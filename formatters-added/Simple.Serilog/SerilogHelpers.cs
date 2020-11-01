@@ -1,16 +1,15 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Data;
 using System.Linq;
 using System.Reflection;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Serilog;
-using Serilog.Enrichers.AspnetcoreHttpcontext;
 using Serilog.Filters;
 using Serilog.Sinks.Elasticsearch;
 using Serilog.Sinks.MSSqlServer;
+using Serilog.Sinks.MSSqlServer.Sinks.MSSqlServer.Options;
 using Simple.Serilog.Formatters;
 
 namespace Simple.Serilog
@@ -21,18 +20,16 @@ namespace Simple.Serilog
         /// Provides standardized, centralized Serilog wire-up for a suite of applications.
         /// </summary>
         /// <param name="loggerConfig">Provide this value from the UseSerilog method param</param>
-        /// <param name="provider">Provide this value from the UseSerilog method param as well</param>
         /// <param name="applicationName">Represents the name of YOUR APPLICATION and will be used to segregate your app
         /// from others in the logging sink(s).</param>
         /// <param name="config">IConfiguration settings -- generally read this from appsettings.json</param>
         public static void WithSimpleConfiguration(this LoggerConfiguration loggerConfig, 
-            IServiceProvider provider, string applicationName, IConfiguration config)
+            string applicationName, IConfiguration config)
         {
-            var name = Assembly.GetEntryAssembly().GetName();
+            var name = Assembly.GetExecutingAssembly().GetName();
 
             loggerConfig
                 .ReadFrom.Configuration(config) // minimum levels defined per project in json files 
-                .Enrich.WithAspnetcoreHttpcontext(provider, AddCustomContextDetails)
                 .Enrich.FromLogContext()
                 .Enrich.WithMachineName()
                 .Enrich.WithProperty("Assembly", $"{name.Name}")
@@ -40,38 +37,24 @@ namespace Simple.Serilog
                 //.WriteTo.File(new CompactJsonFormatter(),
                 //    $@"C:\temp\Logs\{applicationName}.json");
                 .WriteTo.Logger(lc => lc
-                    .Filter.ByIncludingOnly(Matching.WithProperty("ElapsedMilliseconds"))                       
+                    .Filter.ByIncludingOnly(Matching.WithProperty("UsageName"))
                     .WriteTo.MSSqlServer(
                         connectionString: @"Server=.\sqlexpress;Database=Logging;Trusted_Connection=True;",
-                        tableName: "PerfLogNew",
-                        autoCreateSqlTable: true,
+                        sinkOptions: new SinkOptions {AutoCreateSqlTable = true, TableName = "UsageLogNew"},
                         columnOptions: GetSqlColumnOptions()))
                 .WriteTo.Logger(lc => lc
-                    .Filter.ByIncludingOnly(Matching.WithProperty("UsageName"))
+                    .Filter.ByExcluding(Matching.WithProperty("UsageName"))
+                    //    .WriteTo.Seq("http://localhost:5341"));
                     .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri("http://localhost:9200"))
                         {
                             AutoRegisterTemplate = true,
-                            AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv6,
-                            IndexFormat = "usagenew-{0:yyyy.MM.dd}",
+                            AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv7,
+                            IndexFormat = "lognew-{0:yyyy.MM.dd}",
                             InlineFields = true,
                             CustomFormatter = new CustomElasticsearchJsonFormatter(inlineFields: true,
                                 renderMessageTemplate: false)
                     }
-                    ))
-                .WriteTo.Logger(lc => lc
-                    .Filter.ByExcluding(Matching.WithProperty("ElapsedMilliseconds"))
-                    .Filter.ByExcluding(Matching.WithProperty("UsageName"))
-                    .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri("http://localhost:9200"))
-                        {
-                            AutoRegisterTemplate = true,
-                            AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv6,
-                            IndexFormat = "errornew2-{0:yyyy.MM.dd}",
-                            InlineFields = true,
-                            CustomFormatter = new CustomElasticsearchJsonFormatter(inlineFields:true, 
-                                renderMessageTemplate:false)
-                        }
-                    )
-                    .WriteTo.File(new CustomLogEntryFormatter(), $@"c:\temp\logs\{applicationName}-error.json"));
+                    ));
         }
 
         private static ColumnOptions GetSqlColumnOptions()
@@ -90,13 +73,13 @@ namespace Simple.Serilog
             options.AdditionalColumns = new Collection<SqlColumn>
             {
                 new SqlColumn
-                { ColumnName = "PerfItem", AllowNull = false,
-                    DataType = SqlDbType.NVarChar, DataLength = 100,
-                    NonClusteredIndex = true },
-                new SqlColumn
-                {
-                    ColumnName = "ElapsedMilliseconds", AllowNull = false,
-                    DataType = SqlDbType.Int
+                { 
+                    ColumnName = "UsageName", 
+                    AllowNull = false,
+                    DataType = SqlDbType.NVarChar, 
+                    DataLength = 200,
+                    NonClusteredIndex = true
+
                 },
                 new SqlColumn
                 {
@@ -106,39 +89,31 @@ namespace Simple.Serilog
                 {
                     ColumnName = "MachineName", AllowNull = false
                 }
-            };            
+            };
 
             return options;
         }
 
-        private static UserInfo AddCustomContextDetails(IHttpContextAccessor ctx)
+        public static IApplicationBuilder UseSimpleSerilogRequestLogging(this IApplicationBuilder app)
         {
-            var excluded = new List<string> {"nbf", "exp", "auth_time", "amr", "sub"};
-            const string userIdClaimType = "sub";
-
-            var context = ctx.HttpContext;
-            var user = context?.User.Identity;
-            if (user == null || !user.IsAuthenticated) return null;
-            
-            var userId = context.User.Claims.FirstOrDefault(a => a.Type == userIdClaimType)?.Value;
-            var userInfo = new UserInfo
+            return app.UseSerilogRequestLogging(opts =>
             {
-                UserName = user.Name,
-                UserId = userId,
-                UserClaims = new Dictionary<string, List<string>>()
-            };
-            foreach (var distinctClaimType in context.User.Claims
-                .Where(a => excluded.All(ex => ex != a.Type))
-                .Select(a => a.Type)
-                .Distinct())
-            {
-                userInfo.UserClaims[distinctClaimType] = context.User.Claims
-                    .Where(a => a.Type == distinctClaimType)
-                    .Select(c => c.Value)
-                    .ToList();
-            }
-                
-            return userInfo;
+                opts.EnrichDiagnosticContext = (diagCtx, httpCtx) =>
+                {
+                    diagCtx.Set("ClientIP", httpCtx.Connection.RemoteIpAddress);
+                    diagCtx.Set("UserAgent", httpCtx.Request.Headers["User-Agent"]);
+                    if (httpCtx.User.Identity.IsAuthenticated)
+                    {
+                        var i = 0;
+                        var userInfo = new UserInfo
+                        {
+                            Name = httpCtx.User.Identity.Name,
+                            Claims = httpCtx.User.Claims.ToDictionary(x => $"{x.Type} ({i++})", y => y.Value)
+                        };
+                        diagCtx.Set("UserInfo", userInfo, true);
+                    }
+                };
+            });
         }
     }
 }

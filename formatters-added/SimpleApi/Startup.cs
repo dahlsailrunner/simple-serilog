@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Simple.Serilog.Filters;
+using Serilog;
+using Simple.Serilog;
 using Simple.Serilog.Middleware;
 
 namespace SimpleApi
@@ -19,21 +22,19 @@ namespace SimpleApi
         
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddMvc(options =>
-            {
-                options.Filters.Add(new TrackPerformanceFilter());
-
-            });
-
+            services.AddControllers();
+            
             services.AddAuthorization();
-
             services.AddAuthentication("Bearer")
-                .AddIdentityServerAuthentication(options =>
+                .AddJwtBearer(options =>
                 {
                     options.Authority = "https://demo.identityserver.io";
-                    options.ApiName = "api";  // defines required scope in bearer token
+                    options.Audience = "api";
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnAuthenticationFailed = AuthFailed
+                    };
                 });
-
         }
 
         public void Configure(IApplicationBuilder app)
@@ -43,8 +44,14 @@ namespace SimpleApi
             app.UseAuthentication();
             app.UseApiExceptionHandler();  // from custom helper assembly
             //app.UseApiExceptionHandler(opts => { opts.AddResponseDetails = AddCustomErrorInfo; });            
-            app.UseRouting()
-                .UseEndpoints(endpoints => endpoints.MapControllers());
+            app.UseRouting();
+            app.UseSimpleSerilogRequestLogging();
+            app.UseAuthorization();
+
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapControllers();
+            });
         }
 
         private void AddCustomErrorInfo(HttpContext ctx, Exception ex, ApiError error)
@@ -53,6 +60,11 @@ namespace SimpleApi
             //error.Detail = "";
             //error.Links = "";
             //error.Code = "";
+        }
+        private Task AuthFailed(AuthenticationFailedContext ctx)
+        {
+            Log.Warning(ctx.Exception, "API authentication failure occurred.");
+            return Task.CompletedTask;
         }
     }
 }

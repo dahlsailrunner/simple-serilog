@@ -1,9 +1,6 @@
 ﻿using System;
-using System.IO;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Serilog.Enrichers.AspnetcoreHttpcontext;
+using Microsoft.Extensions.Hosting;
 using Serilog;
 using Simple.Serilog;
 
@@ -11,12 +8,6 @@ namespace SimpleApi
 {
     public class Program
     {
-        public static IConfiguration Configuration { get; } = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
-            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-            .AddEnvironmentVariables()
-            .Build();
-
         public static int Main(string[] args)
         {
             try
@@ -36,14 +27,15 @@ namespace SimpleApi
             }
         }
 
-        public static IWebHostBuilder CreateWebHostBuilder(string[] args)
+        public static IHostBuilder CreateWebHostBuilder(string[] args)
         {
-            return WebHost.CreateDefaultBuilder(args)
-                .UseStartup<Startup>()
-                .UseSerilog((provider, context, loggerConfig) =>
+            return Host.CreateDefaultBuilder(args)
+                .UseSerilog((context, loggerConfig) =>
                 {
-                    loggerConfig.WithSimpleConfiguration(provider, "SimpleAPI", Configuration);
-                });
-        }        
+                    loggerConfig.WithSimpleConfiguration("SimpleAPI", context.Configuration);
+                })
+                .ConfigureWebHostDefaults(webBuilder =>
+                    webBuilder.UseStartup<Startup>());
+        }
     }    
 }
