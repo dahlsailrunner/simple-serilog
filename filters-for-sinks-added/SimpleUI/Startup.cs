@@ -3,11 +3,10 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Simple.Serilog;
 
 namespace SimpleUI
 {
@@ -20,12 +19,10 @@ namespace SimpleUI
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
             services.Configure<CookiePolicyOptions>(options =>
             {
-                // This lambda determines whether user consent for non-essential cookies is needed for a given request.
                 options.CheckConsentNeeded = context => true;
                 options.MinimumSameSitePolicy = SameSiteMode.None;
             });
@@ -43,9 +40,9 @@ namespace SimpleUI
                     options.SignInScheme = "Cookies";
                     options.Authority = "https://demo.identityserver.io";
 
-                    options.ClientId = "server.hybrid";
+                    options.ClientId = "interactive.confidential";
                     options.ClientSecret = "secret";
-                    options.ResponseType = "code id_token";
+                    options.ResponseType = "code";
                     options.Scope.Add("email");
                     options.Scope.Add("api");
                     options.Scope.Add("offline_access");
@@ -57,8 +54,14 @@ namespace SimpleUI
                         return Task.CompletedTask;
                     };
                 });
-            
-            services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
+
+            services.AddAccessTokenManagement();
+            services.AddHttpClient<SimpleApiClient>()
+                .AddUserAccessTokenHandler();
+
+            services.AddAuthorization();
+
+            services.AddControllersWithViews();
         }
 
         private ClaimsPrincipal TransformClaims(ClaimsPrincipal principal)
@@ -71,22 +74,23 @@ namespace SimpleUI
             return new ClaimsPrincipal(newIdentity);
         }
         
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app)
         {
             app.UseExceptionHandler("/Home/Error");
             app.UseHsts();            
             app.UseHttpsRedirection();
 
             app.UseAuthentication();
-
             app.UseStaticFiles();
             app.UseCookiePolicy();
-
-            app.UseMvc(routes =>
+            app.UseRouting();
+            app.UseSimpleSerilogRequestLogging();
+            app.UseAuthorization();
+            app.UseEndpoints(endpoints =>
             {
-                routes.MapRoute(
+                endpoints.MapControllerRoute(
                     name: "default",
-                    template: "{controller=Home}/{action=Index}/{id?}");
+                    pattern: "{controller=Home}/{action=Index}/{id?}");
             });
         }
     }

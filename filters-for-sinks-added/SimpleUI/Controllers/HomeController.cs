@@ -1,13 +1,15 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
+using IdentityModel.Client;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json.Linq;
 using Serilog;
 using Simple.Serilog.Attributes;
+using Simple.Serilog.Middleware;
 using SimpleUI.Models;
 
 namespace SimpleUI.Controllers
@@ -15,6 +17,13 @@ namespace SimpleUI.Controllers
     [Authorize]
     public class HomeController : Controller
     {
+        private readonly SimpleApiClient _apiClient;
+
+        public HomeController(SimpleApiClient apiClient)
+        {
+            _apiClient = apiClient;
+        }
+
         [AllowAnonymous]
         [LogUsage("View Home Page")]
         public IActionResult Index()
@@ -47,51 +56,37 @@ namespace SimpleUI.Controllers
         [LogUsage("View Good API Page")]
         public async Task<IActionResult> GoodApi()
         {
-            var client = new HttpClient();
-            var token = await HttpContext.GetTokenAsync("access_token");
-            client.SetBearerToken(token);
-
-            var response = await GetWithHandlingAsync(client, "https://localhost:44389/api/Values");
-            
-            ViewBag.Json = JArray.Parse(await response.Content.ReadAsStringAsync()).ToString();
+            var results = await _apiClient.GetAllValuesAsync();
+            ViewBag.Json = string.Join(", ", results); //JsonSerializer.Serialize(results);
 
             return View();
         }
 
         public async Task<IActionResult> UnauthApi()
         {
+            // wrong way to make API call -- wrong token and not using httpclientfactory
             var client = new HttpClient();
             var token = await HttpContext.GetTokenAsync("id_token");  // consciously getting wrong token here
             client.SetBearerToken(token);
 
             var response = await GetWithHandlingAsync(client, "https://localhost:44389/api/Values");
             
-            ViewBag.Json = JArray.Parse(await response.Content.ReadAsStringAsync()).ToString();
+            ViewBag.Json = await response.Content.ReadAsStringAsync();
             return View("BadApi");  // should never really get here....            
         }
 
         public async Task<IActionResult> GoodParamApi()
         {
-            var client = new HttpClient();
-            var token = await HttpContext.GetTokenAsync("access_token");
-            client.SetBearerToken(token);
-
-            var response = await GetWithHandlingAsync(client, "https://localhost:44389/api/Values/456");
-
-            ViewBag.Json = await response.Content.ReadAsStringAsync();
+            var results = await _apiClient.GetSingleValueAsync(456);
+            ViewBag.Json = results;
             return View(); 
         }
 
         public async Task<IActionResult> BadApi()
         {
-            var client = new HttpClient();
-            var token = await HttpContext.GetTokenAsync("access_token");
-            client.SetBearerToken(token);
-
-            var response = await GetWithHandlingAsync(client, "https://localhost:44389/api/Values/123");
-            
-            ViewBag.Json = JArray.Parse(await response.Content.ReadAsStringAsync()).ToString();
-            return View(); // should never really get here....
+            var results = await _apiClient.GetSingleValueAsync(123);
+            ViewBag.Json = results;
+            return View();
         }        
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
@@ -105,28 +100,21 @@ namespace SimpleUI.Controllers
             var response = await client.GetAsync(apiRoute);
             if (!response.IsSuccessStatusCode)
             {
-                string error = "";
-                string id = "";
-
+                var ex = new Exception("API Failure");
+                ex.Data.Add("ResponseCode", Convert.ToInt16(response.StatusCode));
+                ex.Data.Add("RequestUri", response.RequestMessage?.RequestUri);
+                ex.Data.Add("RequestMethod", response.RequestMessage?.Method);
                 if (response.Content.Headers.ContentLength > 0)
                 {
-                    var j = JObject.Parse(await response.Content.ReadAsStringAsync());
-                    error = (string) j["Title"];
-                    id = (string) j["Id"];
+                    var error = await response.Content.ReadFromJsonAsync<ApiError>();
+                    if (error != null)
+                    {
+                        ex.Data.Add("ErrorId", error.Id);
+                        ex.Data.Add("ErrorMessage", error.Title);
+                    }
                 }
-                
-                var ex = new Exception("API Failure");
-
-                ex.Data.Add("API Route", $"GET {apiRoute}");
-                ex.Data.Add("API Status", (int) response.StatusCode);
-                if (!string.IsNullOrEmpty(error))
-                {
-                    ex.Data.Add("API Error", error);
-                    ex.Data.Add("API ErrorId", id);
-                }                
                 throw ex;
-            }            
-
+            }
             return response;
         }
     }
