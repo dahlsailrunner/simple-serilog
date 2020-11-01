@@ -41,14 +41,14 @@ namespace Simple.Serilog
                         columnOptions: GetSqlColumnOptions()))
                 .WriteTo.Logger(lc => lc
                     .Filter.ByExcluding(Matching.WithProperty("UsageName"))
-                    .WriteTo.Seq("http://localhost:5341"));
-            //.WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri("http://localhost:9200"))
-            //    {
-            //        AutoRegisterTemplate = true,
-            //        AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv6,
-            //        IndexFormat = "log-{0:yyyy.MM.dd}"
-            //    }
-            //));
+                    //    .WriteTo.Seq("http://localhost:5341"));
+                    .WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri("http://localhost:9200"))
+                        {
+                            AutoRegisterTemplate = true,
+                            AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv6,
+                            IndexFormat = "log-{0:yyyy.MM.dd}"
+                        }
+                    ));
         }
 
         private static ColumnOptions GetSqlColumnOptions()
